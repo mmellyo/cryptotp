@@ -124,24 +124,27 @@ SHIFT_SCHEDULE = [1, 1, 2, 2, 2, 2, 2, 2,
 
 
 # Helpers
-def get_bit(data, pos):
-    return (data >> (64 - pos)) & 1
+def get_bit(data, pos, size):
+    return (data >> (size - pos)) & 1
 
-def set_bit(data, pos, val):
+def set_bit(data, pos, val, size):
     if val:
-        return data | (1 << (64 - pos))
+        return data | (1 << (size - pos))
     else:
-        return data & ~(1 << (64 - pos))
-
+        return data & ~(1 << (size - pos))
 
 
 # main functions (steps)
-def permute(block, table):
+def permute(block, table, in_size):
     out = 0
+    out_size = len(table)
+
     for i, pos in enumerate(table):
-        bit = get_bit(block, pos)
-        out = set_bit(out, i+1, bit)
+        bit = get_bit(block, pos, in_size)
+        out = set_bit(out, i + 1, bit, out_size)
+
     return out
+
 
 def expand(data):
     expanded = 0
@@ -173,7 +176,7 @@ def left_rotate(val, n, bits):
 def subkey_generation(key_input):
     # permuted1 64 -> 56
     # drop bits + permute
-    key_p1 = permute(key_input, KEY_P1)
+    key_p1 = permute(key_input, KEY_P1, 64)
 
     # Split into C and D halves (28 bits each)
     L = (key_p1 >> 28) & 0x0FFFFFFF
@@ -194,7 +197,7 @@ def subkey_generation(key_input):
 
         # permuted2
         # 58 -> 48 + permute
-        subkey = permute(combined, KEY_P2) #(round key)
+        subkey = permute(combined, KEY_P2, 56) #(round key)
 
         subkeys.append(subkey)
 
@@ -214,14 +217,14 @@ def feistel(R, subkey):
     substituted = substitution(expanded)
 
     #transposition (b-box)
-    output = permute(substituted, P_BOX)
+    output = permute(substituted, P_BOX, 32)
 
     return output
 
 
 def encrypt(block, key):
     # Initial permutation
-    block = permute(block, IP)
+    block = permute(block, IP, 64)
 
     #split into 2 parts
     L = block >> 32
@@ -239,7 +242,7 @@ def encrypt(block, key):
     preoutput = (R << 32) | L
 
     #final permutation
-    ciphertext = permute(preoutput, FP)
+    ciphertext = permute(preoutput, FP, 64)
 
     return ciphertext
 
